@@ -1,70 +1,91 @@
 # Furcate OS: the interface, as the distribution ships it.
 #
-# Installed to /etc/xdg/tuios/config.toml, which is the system default an
-# operator's own ~/.config/tuios/config.toml overrides key by key. Nothing here
-# is locked: this is what a machine looks like before anybody has an opinion,
-# not a policy about what they may change.
-#
-# The console's own design notes argue that a terminal is not a worse window
-# manager and that what a terminal is good at is a dense fixed layout that never
-# moves. That is still true of the console itself, which is why it keeps its own
-# rail and its own keys. What it needed underneath it was somewhere to put a
-# second thing — a shell, a log, another machine — without losing the first.
+# Installed to /etc/xdg/tuios/config.toml, the system config directory
+# XDG_CONFIG_DIRS names on this distribution, so an operator's own
+# ~/.config/tuios/config.toml overrides it key by key. Nothing here is locked:
+# this is what a machine looks like before anybody has an opinion.
 
 [appearance]
 # The distribution's own palette, compiled into the binary. See
 # internal/theme/furcate.go; it is generated from the same OKLCH definition that
 # paints the login banner and the shell prompt, so all three are one brand.
 #
-# On a machine's own screen this is not what carries the brand. TERM=linux is a
-# sixteen-colour terminal with no truecolour to put an RGB theme in, so the
-# profile script remaps the console's own slots to the same four values the
-# login banner uses — and from then on the indices *are* the brand. The theme
-# still applies over SSH, where the terminal can show it.
+# On the machine's own screen this is not what carries the brand. TERM=linux is
+# a sixteen-colour terminal with nowhere to put an RGB theme, so the profile
+# script remaps the console's own slots to the four values the login banner uses
+# and from then on the indices *are* the brand. The theme still applies over
+# SSH, where the terminal can show it.
 theme = "furcate"
 
-# Square corners. The console draws itself with box-drawing rules and filled
-# bars, and rounded window corners around square content reads as two different
-# UIs stacked.
+# Square corners. The views draw with box rules and filled bars, and rounded
+# window corners around square content reads as two designs stacked.
 border_style = "normal"
 
-# The buttons are a desktop metaphor on a machine that has no mouse in a rack.
-# Panes are closed with a key, and the title bar's width is worth more than
-# three glyphs nobody clicks.
-hide_window_buttons = true
-window_title_position = "top"
+# The rail down the side is the navigation.
+#
+# Without it there is no way to see what else exists: an operator looking at
+# four panes has no idea there are other sessions, other machines, or anything
+# behind them. This is the part that makes the interface navigable rather than
+# a fixed dashboard somebody has to already know the keys for.
+[appearance.sidebar]
+enabled = true
+position = "left"
+width = 26
+# Sessions first, because on a controller that list is the cluster. Then the
+# windows in the one you are looking at. Files last and small — an operations
+# screen is not a file manager, but a deploy that needs a path is common enough
+# that removing it entirely would be its own annoyance.
+sections = "sessions:30,terminals:45,files:25"
+show_glyphs = true
+show_counts = true
+tooltips = true
+# Navigate rather than cd: clicking a folder in an operations rail should move
+# the listing, not silently change the working directory of whatever pane
+# happens to be focused.
+folder_click = "navigate"
+# Off. Every Furcate action needs an operator signature over a nonced order, and
+# a rail that can delete files is a way around that for anything on disk.
+file_actions = false
 
-# Long enough to hold the output of a boot, a build, or a journal dump somebody
-# is reading backwards, which is the reason an operator scrolls at all.
+# The mouse works, where the terminal has one.
+#
+# Over SSH from a real terminal this is immediate. On the machine's own console
+# it needs gpm, which the package recommends and the postinst reports on: a VT
+# has no mouse of its own, so tuios has none to receive.
+focus_follows_mouse = false
+alt_drag = true
+click_to_type = "single"
+
+# Long enough to hold a boot, a build, or a journal dump read backwards, which
+# is the reason an operator scrolls at all.
 scrollback_lines = 50000
 
 [startup]
-# The console is the first thing on screen, opened by the layout below rather
-# than by this — a default window would put a bare shell in front of it.
+# The views are opened by the login script, which knows which machine this is.
+# A default window would put a bare shell in front of them.
 open_default_window = false
 
 # Tiled from the first pane. A floating window that has to be moved is a
 # desktop's idea; every pane here should be visible without arranging anything.
 tiled = true
 
-# Window-management mode, not terminal mode. The first thing an operator does is
-# look, and keys that navigate should work before keys that type.
+# Window-management mode. The first thing an operator does is look, and the keys
+# that navigate should work before the keys that type.
 start_in_terminal_mode = false
 
 layout = "bsp"
 
 # A bare `tuios` attaches to the daemon rather than running standalone, so a
-# dropped SSH connection is reattached to rather than lost. This is the property
-# the whole session model exists for on machines somebody is worried about.
+# dropped connection is reattached to rather than lost.
 daemon = true
 
 [dock]
-# What the bar carries, left to right.
+# The bar is where the keys are.
 #
-# The right-hand end is the machine's own state, because that is the question an
-# operator has continuously and should never have to ask for: what is this
-# machine doing, and is anything wrong with it. cpu and ram are tuios's own; the
-# rest read Furcate through furcatectl.
+# `mode` says which mode the interface is in, which is the single most useful
+# thing on screen for somebody who has not learned the modal model yet.
+# `workspaces` shows the pages and which one is current. `windows` names the
+# panes. Between them an operator can see what exists and what will move.
 left   = ["mode", "workspaces"]
 center = ["windows"]
 right  = ["custom/power", "custom/findings", "custom/site", "cpu", "ram", "clock", "session-controls"]
@@ -76,43 +97,30 @@ format = "15:04:05"
 
 # --- what Furcate puts on the bar -------------------------------------------
 #
-# Each is a command whose first line becomes a cell. That is the entire
-# contract: environment in, one line of text out, and no API behind it that a
-# release could break. SGR colour survives, so each of these paints itself from
-# /usr/share/furcate/palette.sh and stays in the design language without this
-# file restating any of it.
+# Each is a command whose first line becomes a cell: environment in, one line
+# out, no API behind it that a release could break. They paint themselves from
+# /usr/share/furcate/palette.sh, so the design language is stated once.
 #
-# All three are read-only. Nothing on this bar changes the machine — the console
-# reads and furcatectl acts, and a status bar with a lever on it would be a hole
-# in the authority model wearing a convenient shape.
+# All read-only. The console reads and furcatectl acts, and a status bar with a
+# lever on it would be a hole in the authority model wearing a convenient shape.
 
 [dock.custom.power]
-# What the machine is drawing, and whether it is being held below its rating.
-# First on the bar because it is the one number that is both continuously
-# interesting and invisible everywhere else: a node throttled by a controller
-# that died passes every health check and is simply slow.
-command = "/usr/bin/furcatectl dock power 2>/dev/null"
+command = "/opt/furcate/tui/bin/furcatectl dock power 2>/dev/null"
 refresh = "10s"
 max-width = 16
 
 [dock.custom.findings]
-# What the machine has concluded about itself and cannot act on alone. Silent
-# when there is nothing, so a cell appearing is itself the signal.
-command = "/usr/bin/furcatectl dock findings 2>/dev/null"
+command = "/opt/furcate/tui/bin/furcatectl dock findings 2>/dev/null"
 refresh = "30s"
 max-width = 20
 
 [dock.custom.site]
-# Which machine this is and which site administers it. An operator with four
-# SSH sessions open needs the answer before they type, not after.
-command = "/usr/bin/furcatectl dock site 2>/dev/null"
+command = "/opt/furcate/tui/bin/furcatectl dock site 2>/dev/null"
 refresh = "event:after-attach"
 max-width = 28
 
-# --- hooks -------------------------------------------------------------------
-
 [hooks]
-# The bar's site cell is stale the moment a session is picked up somewhere else,
-# and an operator who reattaches from a different machine is exactly who most
-# needs it right. after-attach is a client event, so it fires per attach.
-after-attach = "/usr/bin/furcatectl dock refresh site 2>/dev/null || true"
+# The site cell is stale the moment a session is picked up somewhere else, and
+# an operator reattaching from a different machine is exactly who most needs it
+# right. after-attach is a client event, so it fires per attach.
+after-attach = "/opt/furcate/tui/bin/furcatectl dock refresh site 2>/dev/null || true"

@@ -186,10 +186,10 @@ if [ -z "${FURCATE_GREETED-}" ] && [ -t 1 ]; then
                     2>/dev/null || true
             fi
 
-            # The rest of the birds-eye view, beside it. Four subjects is what
-            # fits a screen and answers "is this machine all right" without
-            # anybody pressing a key; everything else is a keystroke away in
-            # the launcher.
+            # The rest of workspace 1: the machine, at a glance.
+            #
+            # Four subjects is what answers "is this all right" without anybody
+            # pressing a key. Everything else lives on a page of its own.
             for _v in power workloads fleet; do
                 "$FURCATE_TUI_BIN" new-window -s furcate "$_v" -- \
                     $FURCATE_CTL view "$_v" 2>/dev/null || true
@@ -199,6 +199,45 @@ if [ -z "${FURCATE_GREETED-}" ] && [ -t 1 ]; then
             # Tiled, so all four are visible at once rather than stacked with
             # three of them hidden.
             "$FURCATE_TUI_BIN" set-layout -s furcate bsp 2>/dev/null || true
+
+            # The pages.
+            #
+            # Alt+1..9 switches between them, and the dock shows which is
+            # current — so the subsystems are reachable by one key rather than
+            # by knowing a command. This is the structure the ecosystem grows
+            # into: a workspace per subject, and a new primitive lands on the
+            # page it belongs to rather than crowding the overview.
+            #
+            # Opened with --no-focus so building them does not drag the screen
+            # away from workspace 1, which is where the operator should arrive.
+            _page() {
+                "$FURCATE_TUI_BIN" new-window -s furcate "$2" \
+                    --workspace "$1" --no-focus -- "$3" $4 2>/dev/null || true
+            }
+
+            # 2 — what is deployed, and what serves it.
+            _page 2 sites      "$FURCATE_CTL" "deploy list"
+            _page 2 cdn        "$FURCATE_CTL" "cdn list"
+
+            # 3 — what this machine can be asked for.
+            _page 3 resources  "$FURCATE_CTL" "resources"
+            _page 3 admission  "$FURCATE_CTL" "admission"
+
+            # 4 — who may change it, and what it has refused.
+            _page 4 authority  "$FURCATE_CTL" "policy"
+            _page 4 keys       "$FURCATE_CTL" "keys"
+            _page 4 record     "$FURCATE_CTL" "ledger"
+
+            # 5 — what it reasons with.
+            _page 5 models     "$FURCATE_CTL" "model list"
+            _page 5 advisor    "$FURCATE_CTL" "advisor show"
+
+            # 6 — how the world reaches it.
+            _page 6 network    "$FURCATE_CTL" "network show"
+            _page 6 tunnels    "$FURCATE_CTL" "tunnels"
+            _page 6 published  "$FURCATE_CTL" "published"
+
+            unset -f _page
         fi
 
         # -c so that a daemon which died between the check above and here still

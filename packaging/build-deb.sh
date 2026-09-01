@@ -105,7 +105,7 @@ Priority: optional
 Architecture: $arch
 Maintainer: Furcate <eng@tenzro.com>
 Installed-Size: $size
-Recommends: furcate-cli
+Recommends: furcate-cli, gpm
 Homepage: https://github.com/furcateai/tuios
 Description: The interface a Furcate machine shows you
  Furcate's interface is a terminal, so the terminal is not somewhere an
@@ -210,6 +210,18 @@ if ! grep -qF "$marker" /etc/bash.bashrc 2>/dev/null; then
         echo "$marker"
         echo '[ -r /opt/furcate/tui/share/restore-console.sh ] && . /opt/furcate/tui/share/restore-console.sh'
     } >> /etc/bash.bashrc
+fi
+
+# The console's mouse.
+#
+# A Linux VT has no mouse of its own: tuios supports one and receives nothing
+# unless gpm is running to provide it. Over SSH from a real terminal this does
+# not apply, which is why gpm is a recommendation rather than a dependency —
+# but on the machine's own screen a mouse that does nothing is a puzzle rather
+# than a missing feature, so it is named.
+if [ -e /dev/input/mice ] && ! command -v gpm >/dev/null 2>&1; then
+    echo "furcate-tui: a mouse is attached but gpm is not installed, so the"
+    echo "  machine's own console cannot use it:  apt install gpm"
 fi
 
 # A running daemon keeps serving the build it started from, so an upgrade that
