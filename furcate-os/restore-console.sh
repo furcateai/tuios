@@ -37,8 +37,24 @@ esac
 FURCATE_CTL=${FURCATE_CTL:-/opt/furcate/tui/bin/furcatectl}
 [ -x "$FURCATE_CTL" ] || FURCATE_CTL=/usr/bin/furcatectl
 
-if [ "${TUIOS_RESTORED-}" = 1 ] &&
-   [ "$PWD" = /var/lib/furcate-tui/console ] &&
+# Which view was this pane?
+#
+# The marker is the working directory, one per view, because that is the only
+# thing a restored pane keeps: its environment carries TUIOS_RESTORED and the
+# socket and nothing else — the window's name is a hook variable and never
+# reaches it.
+#
+# Every view, not just the first. Restoring one and leaving the other three as
+# bare shells is what a reboot used to give: a screen with one live pane and
+# three prompts wearing the names of views.
+case "$PWD" in
+    /var/lib/furcate-tui/view/*) _view=${PWD##*/} ;;
+    # The name the first pane used before the others had markers of their own.
+    /var/lib/furcate-tui/console) _view=machine ;;
+    *) _view="" ;;
+esac
+
+if [ "${TUIOS_RESTORED-}" = 1 ] && [ -n "$_view" ] &&
    [ "${FURCATE_TUI-1}" != 0 ] &&
    [ -x "$FURCATE_CTL" ]; then
     # The machine's own environment first.
@@ -92,5 +108,5 @@ if [ "${TUIOS_RESTORED-}" = 1 ] &&
     # exec, so the pane is the console rather than a shell with a console in
     # front of it — and so quitting closes the pane the way it does on a first
     # login rather than dropping to a prompt in a marker directory.
-    exec $FURCATE_CTL view machine
+    exec $FURCATE_CTL view "$_view"
 fi

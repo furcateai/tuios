@@ -57,18 +57,17 @@ import fcntl, os, sys
 PIO_CMAP = 0x4B71
 
 PALETTE = (
-    # Slot 0 is not the ground here, it is ink.
+    # Slot 0 is the ground the whole screen sits on.
     #
-    # A window's title and its border glyphs are drawn in a colour that
-    # quantises to slot 0, and painting that the background made 800 cells of
-    # text the same colour as what is behind them — the panes had no visible
-    # edges and no names. The ground the screen actually sits on is the
-    # terminal's default background, which tuios sets from the theme and which
-    # no slot has to carry.
+    # It is also where window titles and border glyphs quantise, which was
+    # tempting to fix by lifting it — and lifting it turned the entire display
+    # pale brown, because 6100 of the 6144 cells on this screen have slot 0 as
+    # their background. A slot cannot be the ground and the ink on it at once.
     #
-    # So slot 0 is the dimmest ink that still reads on that ground rather than
-    # a copy of it.
-    "5c4a2a"  # 0  window titles and border glyphs
+    # So the ground stays the ground, and the titles are dealt with where they
+    # are chosen rather than here: window_title_position = "hidden" in the
+    # config, since the pane's name is already in the rail and the dock.
+    "0d0b08"  # 0  the ground
     "d42320"  # 1  fault
     "8a6a1e"  # 2  chrome (terminal-mode border comes from its bright step)
     "ffaf03"  # 3  amber: the system's own voice

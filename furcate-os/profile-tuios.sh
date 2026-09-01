@@ -204,7 +204,10 @@ if [ -z "${FURCATE_GREETED-}" ] && [ -t 1 ]; then
             # this point in a login.
             # The marker the restored pane recognises itself by. Created
             # before the session so the window can be opened standing in it.
-            mkdir -p /var/lib/furcate-tui/console 2>/dev/null || true
+            for _m in machine power workloads fleet; do
+                mkdir -p "/var/lib/furcate-tui/view/$_m" 2>/dev/null || true
+            done
+            unset _m
 
             "$FURCATE_TUI_BIN" new furcate --detach 2>/dev/null || true
 
@@ -231,7 +234,7 @@ if [ -z "${FURCATE_GREETED-}" ] && [ -t 1 ]; then
                 # rather than being sent literally for the pane's shell to
                 # resolve — it has no such variable and would run nothing.
                 "$FURCATE_TUI_BIN" send-text -s furcate -w "$first" \
-                    "cd /var/lib/furcate-tui/console && exec $FURCATE_CTL view machine
+                    "cd /var/lib/furcate-tui/view/machine && exec $FURCATE_CTL view machine
 " 2>/dev/null || true
                 "$FURCATE_TUI_BIN" set-window -s furcate -w "$first" --name machine \
                     2>/dev/null || true
@@ -241,8 +244,11 @@ if [ -z "${FURCATE_GREETED-}" ] && [ -t 1 ]; then
             #
             # Four subjects is what answers "is this all right" without anybody
             # pressing a key. Everything else lives on a page of its own.
+            # --cwd so the pane stands in its own marker, which is how it
+            # recognises itself after a restore.
             for _v in power workloads fleet; do
-                "$FURCATE_TUI_BIN" new-window -s furcate "$_v" -- \
+                "$FURCATE_TUI_BIN" new-window -s furcate "$_v" \
+                    --cwd "/var/lib/furcate-tui/view/$_v" -- \
                     $FURCATE_CTL view "$_v" 2>/dev/null || true
             done
             unset _v

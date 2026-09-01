@@ -213,7 +213,10 @@ adopt /opt/furcate/tui/share/profile.sh /etc/profile.d/95-furcate-tui.sh
 # World-writable with the sticky bit, like /tmp: any operator may be the one who
 # logs in first and creates the session, and none of them should need root to do
 # it.
-install -d -m1777 /var/lib/furcate-tui/console
+install -d -m1777 /var/lib/furcate-tui/view
+for _v in machine power workloads fleet; do
+    install -d -m1777 "/var/lib/furcate-tui/view/$_v"
+done
 
 # On PATH.
 #

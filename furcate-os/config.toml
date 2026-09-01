@@ -22,6 +22,25 @@ theme = "furcate"
 # window corners around square content reads as two designs stacked.
 border_style = "normal"
 
+# The window controls are a desktop metaphor on a machine in a rack. Panes are
+# closed with a key, and the title bar's width is worth more than three glyphs
+# nobody clicks.
+hide_window_buttons = true
+
+# No title bars.
+#
+# A pane's title is drawn in a colour that quantises to slot 0 on a
+# sixteen-colour console — and slot 0 is the ground the whole screen sits on, so
+# the title is the same colour as what is behind it. It cannot be lifted: 6100
+# of the 6144 cells on this display have slot 0 as their background, so raising
+# it turns the entire screen pale.
+#
+# Hiding the bar is the honest fix rather than a workaround. The pane's name is
+# already in the rail down the side and in the dock along the bottom, so the bar
+# was saying a third time what the screen says twice — and paying for it in the
+# one colour that has to stay legible.
+window_title_position = "hidden"
+
 # The borders, stated rather than derived.
 #
 # tuios builds its chrome out of the palette: a focused border is BrightCyan in
