@@ -121,6 +121,11 @@ func TestWithNoThemeTheDimLeavesDefaultColouredCellsAlone(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	cfg.Appearance.DimUnfocused = 50
+	// The default carries the distribution's palette, and this warning is about
+	// the unthemed case specifically — with a theme set there is RGB to carry
+	// and the dim reaches every cell. Clearing it here states the condition the
+	// test is named for rather than depending on what the default happens to be.
+	cfg.Appearance.Theme = ""
 	var warned bool
 	for _, w := range config.ValidateConfig(cfg).Warnings {
 		if w.Key == "dim_unfocused" {

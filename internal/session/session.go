@@ -936,6 +936,23 @@ func (s *Session) createPTY(windowID string, width, height int, cwd string, comm
 	terminal := vt.New(width, height)
 	terminal.SetScrollbackMaxLines(10000) // Match default scrollback
 
+	// The same sixteen the client will resolve with.
+	//
+	// A cell the guest wrote as SGR 31 crosses the wire as the palette entry it
+	// asked for ("a1"), and each side reads that back through its own emulator
+	// — which is what keeps a theme's red a theme's red instead of a fixed
+	// maroon. That only holds while both emulators answer PaletteColor the same
+	// way. The daemon has no display and used to carry no palette at all, so
+	// with a theme active the client resolved a1 to the theme's red while the
+	// daemon left it an index, and the two sides genuinely held different cells:
+	// every rehydration route compared unequal, and the pen a pane was about to
+	// print with disagreed.
+	//
+	// Giving the daemon the same palette costs nothing on a machine that draws
+	// nothing and is what makes the comparison meaningful. With no theme set
+	// this is the zero palette, which is exactly what the emulator already had.
+	applyThemePalette(terminal)
+
 	// For a restored shell, seed the emulator with a one-line banner so the
 	// respawned process is clearly marked. This is written directly (before the
 	// reader/writer goroutines start) so it lands at the top of the screen ahead
