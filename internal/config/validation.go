@@ -155,10 +155,22 @@ func ValidateConfig(cfg *UserConfig) *ValidationResult {
 		}
 	}
 
-	// On macOS, warn about using alt+ instead of opt+ for better UX
+	// On macOS, warn about using alt+ instead of opt+ for better UX.
+	//
+	// Only for bindings that differ from the shipped defaults. Validation runs
+	// after fillMissingKeybinds has merged those in, so every config reaching
+	// here carries alt+shift+n and alt+shift+p whether or not anybody typed
+	// them — and advising someone to rewrite a key they never chose, in a file
+	// where it does not appear, is the noise this reporting is supposed to
+	// avoid. A default that wants different spelling should be respelled in
+	// DefaultConfig, not reported to every macOS user as their own mistake.
 	if normalizer.IsMacOS() {
-		checkMacOSAltUsage := func(sectionName string, section map[string][]string) {
+		defaults := DefaultConfig()
+		checkMacOSAltUsage := func(sectionName string, section, defaultSection map[string][]string) {
 			for action, keys := range section {
+				if slices.Equal(keys, defaultSection[action]) {
+					continue
+				}
 				for _, key := range keys {
 					keyLower := strings.ToLower(strings.TrimSpace(key))
 					// Warn if using alt+ (suggest opt+ instead for macOS consistency)
@@ -174,15 +186,15 @@ func ValidateConfig(cfg *UserConfig) *ValidationResult {
 		}
 
 		// Check all sections for alt+ usage on macOS
-		checkMacOSAltUsage("window_management", cfg.Keybindings.WindowManagement)
-		checkMacOSAltUsage("workspaces", cfg.Keybindings.Workspaces)
-		checkMacOSAltUsage("layout", cfg.Keybindings.Layout)
-		checkMacOSAltUsage("mode_control", cfg.Keybindings.ModeControl)
-		checkMacOSAltUsage("system", cfg.Keybindings.System)
-		checkMacOSAltUsage("prefix_mode", cfg.Keybindings.PrefixMode)
-		checkMacOSAltUsage("window_prefix", cfg.Keybindings.WindowPrefix)
-		checkMacOSAltUsage("minimize_prefix", cfg.Keybindings.MinimizePrefix)
-		checkMacOSAltUsage("workspace_prefix", cfg.Keybindings.WorkspacePrefix)
+		checkMacOSAltUsage("window_management", cfg.Keybindings.WindowManagement, defaults.Keybindings.WindowManagement)
+		checkMacOSAltUsage("workspaces", cfg.Keybindings.Workspaces, defaults.Keybindings.Workspaces)
+		checkMacOSAltUsage("layout", cfg.Keybindings.Layout, defaults.Keybindings.Layout)
+		checkMacOSAltUsage("mode_control", cfg.Keybindings.ModeControl, defaults.Keybindings.ModeControl)
+		checkMacOSAltUsage("system", cfg.Keybindings.System, defaults.Keybindings.System)
+		checkMacOSAltUsage("prefix_mode", cfg.Keybindings.PrefixMode, defaults.Keybindings.PrefixMode)
+		checkMacOSAltUsage("window_prefix", cfg.Keybindings.WindowPrefix, defaults.Keybindings.WindowPrefix)
+		checkMacOSAltUsage("minimize_prefix", cfg.Keybindings.MinimizePrefix, defaults.Keybindings.MinimizePrefix)
+		checkMacOSAltUsage("workspace_prefix", cfg.Keybindings.WorkspacePrefix, defaults.Keybindings.WorkspacePrefix)
 	}
 
 	validateDock(cfg, result)
