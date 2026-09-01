@@ -1,0 +1,188 @@
+#!/bin/sh
+# Build furcate-tui .deb packages from the binaries in dist/.
+#
+# Written as `ar` and two tarballs rather than as a debhelper rules file,
+# because the binaries are cross-compiled Go and there is nothing for
+# dpkg-buildpackage to do that this does not: no compilation, no shared library
+# to scan, no debug symbols to split. It runs anywhere with ar and tar, which
+# includes the Mac these are built on. A machine with dpkg-deb can use that
+# instead and get a byte-identical result.
+#
+# Usage: packaging/build-deb.sh [version]
+set -eu
+
+here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+root=$(dirname "$here")
+dist="$root/dist"
+version="${1:-1.0.0}"
+
+[ -d "$dist" ] || { echo "no dist/ — run the go builds first" >&2; exit 1; }
+
+# A .deb is an ar archive of three members in a fixed order. mkar.py writes it
+# directly: macOS ships BSD ar, which emits a symbol table and a header variant
+# dpkg refuses, and requiring GNU binutils just to concatenate three files would
+# put a toolchain between the build and the package for no reason.
+MKAR="$here/mkar.py"
+[ -x "$MKAR" ] || { echo "missing $MKAR" >&2; exit 1; }
+
+# GNU tar, for --sort and --mtime. Those are what make the package
+# reproducible: without a fixed order and a fixed timestamp two builds of the
+# same tree differ, and then a checksum cannot answer whether a machine is
+# running what was built. BSD tar (macOS's default) has neither flag, so it is
+# named rather than assumed.
+TAR=$(command -v gtar || command -v tar)
+case $($TAR --version 2>/dev/null | head -1) in
+    *GNU*) : ;;
+    *) echo "GNU tar required (brew install gnu-tar gives gtar)" >&2; exit 1 ;;
+esac
+
+for arch in amd64 arm64; do
+    bin="$dist/tuios-linux-$arch"
+    web="$dist/tuios-web-linux-$arch"
+    [ -f "$bin" ] || { echo "missing $bin" >&2; exit 1; }
+
+    work=$(mktemp -d)
+    trap 'rm -rf "$work"' EXIT
+
+    # --- the filesystem the package lays down ---------------------------------
+    install -d "$work/root/usr/bin"
+    install -m755 "$bin" "$work/root/usr/bin/tuios"
+    [ -f "$web" ] && install -m755 "$web" "$work/root/usr/bin/tuios-web"
+
+    # Both configuration files ship under /usr/share as candidates, and the
+    # postinst puts them where they take effect.
+    #
+    # This is not indirection for its own sake: deploy/build-sysext.sh refuses
+    # any package carrying /etc, and it is right to. A sysext is replaced
+    # wholesale on every update, so an /etc shipped inside one would take an
+    # operator's edits with it. The distribution already handles its own
+    # branding this way — /usr/share/furcate/profile.sh is adopted into
+    # /etc/profile.d by deploy/os/adopt — and this follows it rather than
+    # inventing a second convention.
+    install -d "$work/root/usr/share/furcate/tui"
+    install -m644 "$root/furcate-os/config.toml" \
+        "$work/root/usr/share/furcate/tui/config.toml"
+    install -m644 "$root/furcate-os/profile-tuios.sh" \
+        "$work/root/usr/share/furcate/tui/profile.sh"
+
+    size=$(du -ks "$work/root" | cut -f1)
+
+    # --- control -------------------------------------------------------------
+    install -d "$work/ctl"
+    cat > "$work/ctl/control" <<EOF
+Package: furcate-tui
+Version: $version
+Section: admin
+Priority: optional
+Architecture: $arch
+Maintainer: Furcate <eng@tenzro.com>
+Installed-Size: $size
+Recommends: furcate-cli
+Homepage: https://github.com/furcateai/tuios
+Description: The interface a Furcate machine shows you
+ Furcate's interface is a terminal, so the terminal is not somewhere an
+ operator goes to administer the machine: it is what the machine shows them.
+ This package is that layer - a window manager, workspaces, a command palette
+ and sessions that outlive the connection they were started over, which is the
+ property that matters on machines reached over links that drop.
+ .
+ The operator console runs inside it rather than instead of it. Logging in
+ lands in the interface with the console in the first pane, and quitting drops
+ to a shell rather than logging out: a machine somebody walked up to must never
+ be left with nothing.
+EOF
+
+    # No conffiles. Nothing under /etc is shipped — see above — so dpkg has
+    # no operator-owned file here to protect. The copy the postinst lays down
+    # is protected by the postinst itself, which never overwrites one that has
+    # been edited.
+
+    # A running daemon keeps serving the build it started from, so an upgrade
+    # that only replaces the binary leaves the old code running with no sign of
+    # it. Saying so beats restarting somebody's session out from under them.
+    # Put the shipped candidates where they take effect, and say when a
+    # running daemon means the new binary is not what is being served yet.
+    cat > "$work/ctl/postinst" <<'EOF'
+#!/bin/sh
+set -e
+[ "$1" = configure ] || exit 0
+
+# Adopt the candidates into /etc.
+#
+# Never over an edited copy. A file the operator has changed is a decision they
+# made, and an upgrade that silently reverted it would be the package deciding
+# it knows better. Both are compared against the copy adopted last time, which
+# is what makes "unchanged" answerable at all: comparing against the new
+# candidate would call every upgrade an edit.
+adopt() {
+    src=$1 dest=$2 stamp=/var/lib/furcate-tui/$(basename "$dest")
+    [ -f "$src" ] || return 0
+    mkdir -p "$(dirname "$dest")" /var/lib/furcate-tui
+    if [ -f "$dest" ] && [ -f "$stamp" ] && ! cmp -s "$dest" "$stamp"; then
+        if ! cmp -s "$dest" "$src"; then
+            echo "furcate-tui: keeping your edited $dest"
+            echo "  the new default is $src"
+        fi
+        return 0
+    fi
+    install -m644 "$src" "$dest"
+    cp "$src" "$stamp"
+}
+
+# /etc/xdg is what XDG_CONFIG_DIRS names on this distribution, so an operator's
+# ~/.config/tuios/config.toml still overrides this key by key.
+adopt /usr/share/furcate/tui/config.toml /etc/xdg/tuios/config.toml
+
+# 95- so it runs after the branding script that sets the palette and the
+# prompt: this clears the banner that one draws, and clearing it first would
+# leave the interface underneath a screen nobody asked for.
+adopt /usr/share/furcate/tui/profile.sh /etc/profile.d/95-furcate-tui.sh
+
+# A running daemon keeps serving the build it started from, so an upgrade that
+# only replaced the binary would leave the old code running with no sign of it.
+# Saying so beats restarting somebody's session out from under them.
+if command -v tuios >/dev/null 2>&1 && tuios ls >/dev/null 2>&1; then
+    echo "furcate-tui: a session daemon is running the previous build."
+    echo "  Sessions are saved and restored across a restart:"
+    echo "    tuios kill-server && tuios attach furcate -c"
+fi
+exit 0
+EOF
+    chmod 755 "$work/ctl/postinst"
+
+    # Removal takes back only what was never edited, by the same rule the
+    # postinst adopts by. A file the operator changed outlives the package.
+    cat > "$work/ctl/postrm" <<'EOF'
+#!/bin/sh
+set -e
+[ "$1" = purge ] || exit 0
+for f in /etc/xdg/tuios/config.toml /etc/profile.d/95-furcate-tui.sh; do
+    stamp=/var/lib/furcate-tui/$(basename "$f")
+    if [ -f "$f" ] && [ -f "$stamp" ] && cmp -s "$f" "$stamp"; then
+        rm -f "$f"
+    fi
+    rm -f "$stamp"
+done
+rmdir --ignore-fail-on-non-empty /var/lib/furcate-tui /etc/xdg/tuios 2>/dev/null || true
+exit 0
+EOF
+    chmod 755 "$work/ctl/postrm"
+
+    # --- assemble ------------------------------------------------------------
+    # Reproducible: a fixed mtime and a sorted member order, so the same inputs
+    # give the same bytes and two builds can be compared by checksum.
+    stamp=${SOURCE_DATE_EPOCH:-1767225600}
+    tarflags="--sort=name --owner=0 --group=0 --numeric-owner --mtime=@$stamp"
+
+    ( cd "$work/ctl"  && $TAR $tarflags -czf "$work/control.tar.gz" . )
+    ( cd "$work/root" && $TAR $tarflags -czf "$work/data.tar.gz" . )
+    printf '2.0\n' > "$work/debian-binary"
+
+    out="$dist/furcate-tui_${version}_${arch}.deb"
+    rm -f "$out"
+    ( cd "$work" && "$MKAR" "$out" debian-binary control.tar.gz data.tar.gz )
+
+    rm -rf "$work"
+    trap - EXIT
+    echo "built $out"
+done
