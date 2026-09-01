@@ -34,10 +34,13 @@ case $- in
     *) return 0 ;;
 esac
 
+FURCATE_CTL=${FURCATE_CTL:-/opt/furcate/tui/bin/furcatectl}
+[ -x "$FURCATE_CTL" ] || FURCATE_CTL=/usr/bin/furcatectl
+
 if [ "${TUIOS_RESTORED-}" = 1 ] &&
    [ "$PWD" = /var/lib/furcate-tui/console ] &&
    [ "${FURCATE_TUI-1}" != 0 ] &&
-   [ -x /usr/bin/furcate-console ]; then
+   [ -x "$FURCATE_CTL" ]; then
     # The machine's own environment first.
     #
     # furcated binds the address in FURCATE_LISTEN — the tailnet address, not
@@ -89,5 +92,5 @@ if [ "${TUIOS_RESTORED-}" = 1 ] &&
     # exec, so the pane is the console rather than a shell with a console in
     # front of it — and so quitting closes the pane the way it does on a first
     # login rather than dropping to a prompt in a marker directory.
-    exec /usr/bin/furcate-console
+    exec $FURCATE_CTL view machine
 fi

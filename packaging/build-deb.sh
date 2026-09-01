@@ -74,6 +74,17 @@ for arch in amd64 arm64; do
     # branding this way — /usr/share/furcate/profile.sh is adopted into
     # /etc/profile.d by deploy/os/adopt — and this follows it rather than
     # inventing a second convention.
+    # furcatectl, beside the interface it draws.
+    #
+    # /usr/bin is read-only on a Furcate machine, so the system copy cannot be
+    # replaced without rebuilding the signed distribution image — and the views
+    # the interface is made of live in that binary. Shipping it here lets the
+    # interface and the views it calls move together, which is what they are:
+    # one thing. The system copy stays where it is and keeps working for
+    # everything else.
+    ctl="$dist/bin/furcatectl-linux-$arch"
+    [ -f "$ctl" ] && install -m755 "$ctl" "$work/root/opt/furcate/tui/bin/furcatectl"
+
     install -d "$work/root/opt/furcate/tui/share"
     install -m644 "$root/furcate-os/config.toml" \
         "$work/root/opt/furcate/tui/share/config.toml"

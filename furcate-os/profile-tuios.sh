@@ -36,6 +36,16 @@
 # distribution's.
 FURCATE_TUI_BIN=${FURCATE_TUI_BIN:-/opt/furcate/tui/bin/tuios}
 
+# The furcatectl the views live in.
+#
+# Beside the interface rather than /usr/bin: /usr is read-only on a
+# Furcate machine, so the system copy cannot be updated without
+# rebuilding the signed image, and the views are part of the interface
+# rather than of the base. Falls back to the system one, which is right
+# for a machine where only the base is installed.
+FURCATE_CTL=${FURCATE_CTL:-/opt/furcate/tui/bin/furcatectl}
+[ -x "$FURCATE_CTL" ] || FURCATE_CTL=/usr/bin/furcatectl
+
 # The machine's own environment, before anything is started in it.
 #
 # furcated binds the address in FURCATE_LISTEN — the tailnet address, not
@@ -147,33 +157,48 @@ if [ -z "${FURCATE_GREETED-}" ] && [ -t 1 ]; then
 
             "$FURCATE_TUI_BIN" new furcate --detach 2>/dev/null || true
 
-            # The console goes IN the window the daemon just made, rather than
-            # beside it.
+            # The views go in panes; the old full-screen console does not.
             #
-            # A detached session always gets an initial window — it has no
-            # client to make one later — so `new-window` for the console would
-            # leave two, and the operator would arrive on a bare shell with the
-            # interface behind it. `exec` replaces that shell instead, which
-            # also means the pane closes when the console exits rather than
-            # falling back to a prompt sitting where the interface was.
-            if [ -x /usr/bin/furcate-console ]; then
-                first=$("$FURCATE_TUI_BIN" list-windows -s furcate --json 2>/dev/null |
-                    sed -n 's/.*"window_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' |
-                    head -1)
-                if [ -n "$first" ]; then
-                    # cd first, so the window's saved working directory is
-                    # the marker. That is what lets the pane recognise itself
-                    # as the console after a restore, when its environment
-                    # carries nothing else that would say so.
-                    "$FURCATE_TUI_BIN" send-text -s furcate -w "$first" \
-                        'cd /var/lib/furcate-tui/console && exec /usr/bin/furcate-console
-' 2>/dev/null || true
-                    # Named so `tuios send-keys -w console` can reach it and the
-                    # dock says what the window is rather than "sh".
-                    "$FURCATE_TUI_BIN" set-window -s furcate -w "$first" --name console \
-                        2>/dev/null || true
-                fi
+            # furcate-console drew its own screen — a rail down the left, one
+            # detail pane, a footer, a fixed 78-column layout — and running it
+            # here put that screen over the top of the window manager, so the
+            # machine showed a program with tuios hidden behind it. That is the
+            # UI this replaces rather than wraps.
+            #
+            # Each view is its own window. The daemon's initial window becomes
+            # the first of them, and the rest are opened beside it; tuios tiles
+            # them, titles them, and gives the operator the palette and the
+            # launcher to reach everything else.
+            first=$("$FURCATE_TUI_BIN" list-windows -s furcate --json 2>/dev/null |
+                sed -n 's/.*"window_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' |
+                head -1)
+            if [ -n "$first" ]; then
+                # cd first, so the window's saved working directory is the
+                # marker that lets the pane recognise itself after a restore,
+                # when its environment carries nothing else that would say so.
+                # Double-quoted so the path expands here, in this shell,
+                # rather than being sent literally for the pane's shell to
+                # resolve — it has no such variable and would run nothing.
+                "$FURCATE_TUI_BIN" send-text -s furcate -w "$first" \
+                    "cd /var/lib/furcate-tui/console && exec $FURCATE_CTL view machine
+" 2>/dev/null || true
+                "$FURCATE_TUI_BIN" set-window -s furcate -w "$first" --name machine \
+                    2>/dev/null || true
             fi
+
+            # The rest of the birds-eye view, beside it. Four subjects is what
+            # fits a screen and answers "is this machine all right" without
+            # anybody pressing a key; everything else is a keystroke away in
+            # the launcher.
+            for _v in power workloads fleet; do
+                "$FURCATE_TUI_BIN" new-window -s furcate "$_v" -- \
+                    $FURCATE_CTL view "$_v" 2>/dev/null || true
+            done
+            unset _v
+
+            # Tiled, so all four are visible at once rather than stacked with
+            # three of them hidden.
+            "$FURCATE_TUI_BIN" set-layout -s furcate bsp 2>/dev/null || true
         fi
 
         # -c so that a daemon which died between the check above and here still
