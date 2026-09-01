@@ -99,6 +99,62 @@ if [ -z "${FURCATE_GREETED-}" ] && [ -t 1 ]; then
     FURCATE_GREETED=1
     export FURCATE_GREETED
 
+    # Sixteen colours, because the console has sixteen.
+    #
+    # Ubuntu's `linux` terminfo entry declares colors#8. That is what
+    # decides how far a palette is degraded before it is drawn, and eight
+    # backgrounds is three bits — so a bar asking for background 3 lost the
+    # high bit and was drawn on background 1, the fault red. Every heading
+    # on the screen came out on an alarm colour while the palette itself
+    # was already correct.
+    #
+    # `linux-16color` describes the same terminal with colors#16, which is
+    # what a Linux VT has actually had for as long as it has had a
+    # settable palette.
+    case "${TERM:-}" in
+        linux)
+            if infocmp linux-16color >/dev/null 2>&1; then
+                TERM=linux-16color
+                export TERM
+            fi
+            ;;
+    esac
+
+    # No theme on the machine's own screen.
+    #
+    # This is the opposite of what it looks like, and it is the fix.
+    #
+    # A theme is RGB, and on a sixteen-colour terminal those values are matched
+    # against xterm's *defaults* to pick a slot — the converter has no idea the
+    # console's palette was repainted. Every amber in the brand
+    # (#ffaf03, #ffc96e, #c99a30 …) is nearest to xterm's bright red, so it was
+    # all being drawn on slot 9. The more amber the theme became, the redder the
+    # screen got, which is exactly what happened over several attempts to fix it.
+    #
+    # Unthemed, tuios emits the slot indices themselves and lets the terminal
+    # decide what they look like — GetANSIPalette says so in as many words. The
+    # terminal here is a console whose sixteen slots furcate-vtpalette has
+    # already painted in the brand, so the indices *are* Furcate's colours and
+    # nothing is guessed at.
+    #
+    # Over SSH the theme still applies: that terminal has truecolour and no
+    # repainted palette, so RGB is the right answer there.
+    # The theme stays on.
+    #
+    # It was switched off here for a while, on the reasoning that a
+    # sixteen-colour terminal should be sent indices and left to colour them
+    # from its own repainted palette. That is what GetANSIPalette describes and
+    # it is true of the *panes*; it is not true of the chrome, which unthemed
+    # falls back to slot 0 and drew 800 cells of near-black text on a near-black
+    # ground. Reading the framebuffer back showed nothing in the amber slots at
+    # all.
+    #
+    # Themed, tuios converts its RGB to the nearest of the sixteen using xterm's
+    # defaults as the reference — it cannot know the console was repainted — so
+    # the brand lands a slot or two off from where the names suggest. That is a
+    # smaller error than an invisible interface, and the palette the console
+    # actually holds is Furcate's either way.
+
     # Already inside it. tuios runs the login shell in its own panes, so
     # without this every pane would try to open another tuios inside itself.
     # $TUIOS_SESSION is set by the daemon in the environment it gives a pane.

@@ -134,6 +134,45 @@ func UI() overlay.Palette {
 		p.Success = t.BrightGreen
 		p.Info = t.BrightBlue
 		p.Warning = t.Yellow
+
+		// The neutral ramp follows the theme's own ground.
+		//
+		// Keeping chrome on a constant ramp is right when the theme is a
+		// terminal palette and the chrome is a window manager's frame around
+		// it. It is wrong when the terminal has sixteen colours and no more:
+		// these are RGB constants, and a sixteen-colour display quantises them
+		// to whichever slot is nearest. On a Linux console with an amber
+		// palette loaded, charmtone's neutrals landed on the fault red — so the
+		// rail, the dock and every overlay were drawn on a red ground, and the
+		// screen read as an alarm.
+		//
+		// Derived from the theme's background rather than replaced by it, so
+		// the ramp keeps its shape: the canvas is the ground itself, and each
+		// step up is mixed toward the foreground by the same amount the
+		// constant ramp used. A truecolour terminal sees almost what it saw
+		// before; a sixteen-colour one now has somewhere to land.
+		if bg := t.Bg; bg != nil {
+			fg := color.Color(charmtone.Butter)
+			if t.Fg != nil {
+				fg = t.Fg
+			}
+			p.Canvas = bg
+			p.Panel = mixColors(bg, fg, 0.06)
+			p.Surface = mixColors(bg, fg, 0.10)
+			p.RowSel = mixColors(bg, fg, 0.06)
+			// Card is the rail's row ground and the one step that has to be
+			// watched. At 0.16 toward an amber foreground it becomes #332507,
+			// which a sixteen-colour terminal quantises to slot 1 — the fault
+			// red — so every row of the sidebar was drawn on an alarm. The
+			// step is kept shallow enough to stay on the ground slot, which
+			// costs a little separation on a truecolour display and is worth
+			// it: a rail that reads as a fault is worse than a rail with a
+			// quieter edge.
+			p.Card = mixColors(bg, fg, 0.10)
+			p.Fg = fg
+			p.FgDim = mixColors(bg, fg, 0.65)
+			p.FgMute = mixColors(bg, fg, 0.45)
+		}
 	}
 
 	// Pick the pill foreground for contrast against whichever accent is active.

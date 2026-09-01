@@ -22,6 +22,25 @@ theme = "furcate"
 # window corners around square content reads as two designs stacked.
 border_style = "normal"
 
+# The borders, stated rather than derived.
+#
+# tuios builds its chrome out of the palette: a focused border is BrightCyan in
+# window mode, BrightGreen in terminal mode, and an unfocused one is the theme's
+# Red. That last one is the problem here. Red is the fault colour and nothing
+# else — the one thing on a Furcate screen that is not amber — so with four
+# panes open, three of them were permanently framed as if something were wrong
+# with them.
+#
+# The slot itself cannot be repainted: NotificationError draws from the same
+# Red, and a fault has to stay findable. So the border is overridden instead,
+# which is what these two options are for.
+#
+# Unfocused is the dim neutral the design language already uses for context:
+# present, readable, and saying nothing. Focused is the measured amber, because
+# where you are is a fact worth the brightest colour on the screen.
+border_focused_color = "#ffc96e"
+border_unfocused_color = "#747474"
+
 # The rail down the side is the navigation.
 #
 # Without it there is no way to see what else exists: an operator looking at
@@ -51,25 +70,6 @@ folder_click = "navigate"
 # Off. Every Furcate action needs an operator signature over a nonced order, and
 # a rail that can delete files is a way around that for anything on disk.
 file_actions = false
-
-# The borders, stated rather than derived.
-#
-# tuios builds its chrome out of the palette: a focused border is BrightCyan in
-# window mode, BrightGreen in terminal mode, and an unfocused one is the theme's
-# Red. That last one is the problem here. Red is the fault colour and nothing
-# else — the one thing on a Furcate screen that is not amber — so with four
-# panes open, three of them were permanently framed as if something were wrong
-# with them.
-#
-# The slot itself cannot be repainted: NotificationError draws from the same
-# Red, and a fault has to stay findable. So the border is overridden instead,
-# which is what these two options are for.
-#
-# Unfocused is the dim neutral the design language already uses for context:
-# present, readable, and saying nothing. Focused is the measured amber, because
-# where you are is a fact worth the brightest colour on the screen.
-border_focused_color = "#ffc96e"
-border_unfocused_color = "#747474"
 
 # The mouse works, where the terminal has one.
 #

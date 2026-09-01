@@ -29,6 +29,22 @@
 # The values are the ones internal/theme/furcate.go ships, so the machine's own
 # screen and a terminal over SSH show the same brand rather than two readings
 # of it. Change them together.
+#
+# ## Why slot 9 is amber and not the bright fault
+#
+# Because that is where the brand arrives. A sixteen-colour terminal is sent an
+# index, and the index is chosen by matching the theme's RGB against *xterm's
+# defaults* — the converter has no idea this console was repainted. Every amber
+# in the palette (#ffaf03, #ffc96e, #c99a30, #d8a840) is nearest to xterm's
+# bright red, so all of them are drawn on slot 9.
+#
+# Painting slot 9 the fault colour therefore did not make faults visible: it
+# made the entire interface look like one. Reading /dev/vcsa1 back is what
+# settled it — the amber slots held nothing at all and slot 9 held the screen.
+#
+# So slot 9 carries the measured amber, and the fault keeps slot 1, which is
+# where the fault red still resolves. The brand is correct at the cost of the
+# bright-fault step, which nothing on this screen was using.
 set -eu
 
 tty=${1:-/dev/tty1}
@@ -41,7 +57,18 @@ import fcntl, os, sys
 PIO_CMAP = 0x4B71
 
 PALETTE = (
-    "16120c"  # 0  the ground a filled bar draws its text on
+    # Slot 0 is not the ground here, it is ink.
+    #
+    # A window's title and its border glyphs are drawn in a colour that
+    # quantises to slot 0, and painting that the background made 800 cells of
+    # text the same colour as what is behind them — the panes had no visible
+    # edges and no names. The ground the screen actually sits on is the
+    # terminal's default background, which tuios sets from the theme and which
+    # no slot has to carry.
+    #
+    # So slot 0 is the dimmest ink that still reads on that ground rather than
+    # a copy of it.
+    "5c4a2a"  # 0  window titles and border glyphs
     "d42320"  # 1  fault
     "8a6a1e"  # 2  chrome (terminal-mode border comes from its bright step)
     "ffaf03"  # 3  amber: the system's own voice
@@ -50,7 +77,7 @@ PALETTE = (
     "9a7a2a"  # 6  chrome
     "868686"  # 7  ordinary text
     "747474"  # 8  context: units, labels
-    "d4594e"  # 9  fault, bright
+    "ffc96e"  # 9  where the brand actually lands — see the note below
     "c99a30"  # 10 focused border, terminal mode
     "ffc96e"  # 11 measured: a figure that came off an instrument
     "d8a840"  # 12 dock mode indicator
