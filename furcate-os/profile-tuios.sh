@@ -123,6 +123,26 @@ if [ -z "${FURCATE_GREETED-}" ] && [ -t 1 ]; then
         # machine's own screen and a terminal over SSH are the same brand
         # rather than two readings of it. Regenerate both from
         # deploy/os/branding/palette.json.
+        # Sixteen colours, because the console has sixteen.
+        #
+        # Ubuntu's `linux` terminfo entry declares colors#8. That is what
+        # decides how far a palette is degraded before it is drawn, so the
+        # theme was being folded down to eight and the bright half — every
+        # measured figure, every focused border — was landing on the wrong
+        # slot. The remap below was correct and could not be seen.
+        #
+        # `linux-16color` describes the same terminal with colors#16, which is
+        # what a Linux VT has actually had since it gained the OSC P sequences
+        # this file uses to repaint them.
+        case "${TERM:-}" in
+            linux)
+                if infocmp linux-16color >/dev/null 2>&1; then
+                    TERM=linux-16color
+                    export TERM
+                fi
+                ;;
+        esac
+
         case "${TERM:-}" in
             linux | linux-*)
                 printf '\033]P016120c\033]P1d42320\033]P26b8f3a\033]P3ffaf03'
@@ -249,6 +269,23 @@ if [ -z "${FURCATE_GREETED-}" ] && [ -t 1 ]; then
 
             unset -f _page
         fi
+
+        # Land in window-management mode, not in a pane.
+        #
+        # `startup.start_in_terminal_mode = false` decides how a *new* session
+        # starts and does not survive an attach: attaching focuses a window,
+        # and a window running a program takes the keys. So the machine's own
+        # screen came up with Tab, the arrows and the number keys all being
+        # forwarded into a status view that has no use for them — the interface
+        # looked frozen when it was simply listening somewhere else.
+        #
+        # Sent after the attach, in the background, because the attach does not
+        # return until the operator leaves. A second is long enough for the
+        # client to be reading keys and short enough that nobody sees it.
+        (
+            sleep 1
+            "$FURCATE_TUI_BIN" send-keys -s furcate alt+esc >/dev/null 2>&1
+        ) &
 
         # -c so that a daemon which died between the check above and here still
         # leaves the operator somewhere rather than at a bare shell.
