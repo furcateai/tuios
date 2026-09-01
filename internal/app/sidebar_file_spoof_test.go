@@ -13,6 +13,27 @@ import (
 	"github.com/Gaurav-Gosain/tuios/internal/terminal"
 )
 
+// requireCorroboration skips a test that can only mean something where a pane's
+// claim about its own directory can be checked.
+//
+// The gate these tests exercise is deliberately open when nothing can
+// corroborate the pane — see FileActionsOn, which names "every pane on a system
+// with no /proc" as one of the cases it lets through. That is the documented
+// behaviour rather than a hole: refusing to act because the platform cannot
+// answer would take the file actions away from every macOS user permanently.
+//
+// So on a system without /proc these tests are not failing, they are
+// inapplicable: they assert that a spoof is caught, and nothing here can catch
+// one. Skipping says that, where a red result said the protection was broken on
+// the platform it actually runs on.
+func requireCorroboration(t *testing.T) {
+	t.Helper()
+	if _, ok := terminal.ShellCWD(os.Getpid()); !ok {
+		t.Skip("no /proc: a pane's directory cannot be corroborated here, " +
+			"so the spoof gate is open by design (see FileActionsOn)")
+	}
+}
+
 // spoofPane builds a client with one local-PTY-shaped pane whose shell really
 // sits in realDir, and makes that pane print an OSC 7 naming sayDir instead.
 //
@@ -21,6 +42,7 @@ import (
 // realDir with its own process group, so its pgid is its pid.
 func spoofPane(t *testing.T, realDir, sayDir string) *OS {
 	t.Helper()
+	requireCorroboration(t)
 	cmd := exec.Command("sleep", "120")
 	cmd.Dir = realDir
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
