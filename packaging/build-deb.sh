@@ -45,9 +45,24 @@ for arch in amd64 arm64; do
     trap 'rm -rf "$work"' EXIT
 
     # --- the filesystem the package lays down ---------------------------------
-    install -d "$work/root/usr/bin"
-    install -m755 "$bin" "$work/root/usr/bin/tuios"
-    [ -f "$web" ] && install -m755 "$web" "$work/root/usr/bin/tuios-web"
+    # /opt, not /usr.
+    #
+    # A Furcate machine's /usr is a merged sysext — a signed verity image the
+    # host mounts read-only — so a package writing there fails with EROFS, and
+    # getting a binary in means rebuilding and re-signing the whole
+    # distribution image. /opt is the other hierarchy a sysext may carry, it is
+    # real writable disk on these machines, and nothing is merged over it.
+    #
+    # That makes the interface installable on its own schedule instead of on
+    # the distribution's, which is the right shape for it: tuios is a layer on
+    # Furcate, not part of the base.
+    install -d "$work/root/opt/furcate/tui/bin"
+    install -m755 "$bin" "$work/root/opt/furcate/tui/bin/tuios"
+    [ -f "$web" ] && install -m755 "$web" "$work/root/opt/furcate/tui/bin/tuios-web"
+
+    # On PATH without writing to /usr/bin. /etc is writable on these machines
+    # even when /usr is not, and profile.d is already how the distribution puts
+    # its own things in front of a login shell.
 
     # Both configuration files ship under /usr/share as candidates, and the
     # postinst puts them where they take effect.
@@ -59,11 +74,13 @@ for arch in amd64 arm64; do
     # branding this way — /usr/share/furcate/profile.sh is adopted into
     # /etc/profile.d by deploy/os/adopt — and this follows it rather than
     # inventing a second convention.
-    install -d "$work/root/usr/share/furcate/tui"
+    install -d "$work/root/opt/furcate/tui/share"
     install -m644 "$root/furcate-os/config.toml" \
-        "$work/root/usr/share/furcate/tui/config.toml"
+        "$work/root/opt/furcate/tui/share/config.toml"
     install -m644 "$root/furcate-os/profile-tuios.sh" \
-        "$work/root/usr/share/furcate/tui/profile.sh"
+        "$work/root/opt/furcate/tui/share/profile.sh"
+    install -m644 "$root/furcate-os/restore-console.sh" \
+        "$work/root/opt/furcate/tui/share/restore-console.sh"
 
     size=$(du -ks "$work/root" | cut -f1)
 
@@ -97,7 +114,7 @@ EOF
     # is protected by the postinst itself, which never overwrites one that has
     # been edited.
 
-    # A running daemon keeps serving the build it started from, so an upgrade
+# A running daemon keeps serving the build it started from, so an upgrade
     # that only replaces the binary leaves the old code running with no sign of
     # it. Saying so beats restarting somebody's session out from under them.
     # Put the shipped candidates where they take effect, and say when a
@@ -131,12 +148,58 @@ adopt() {
 
 # /etc/xdg is what XDG_CONFIG_DIRS names on this distribution, so an operator's
 # ~/.config/tuios/config.toml still overrides this key by key.
-adopt /usr/share/furcate/tui/config.toml /etc/xdg/tuios/config.toml
+adopt /opt/furcate/tui/share/config.toml /etc/xdg/tuios/config.toml
 
 # 95- so it runs after the branding script that sets the palette and the
 # prompt: this clears the banner that one draws, and clearing it first would
 # leave the interface underneath a screen nobody asked for.
-adopt /usr/share/furcate/tui/profile.sh /etc/profile.d/95-furcate-tui.sh
+adopt /opt/furcate/tui/share/profile.sh /etc/profile.d/95-furcate-tui.sh
+
+# The marker directory the console pane recognises itself by after a restore.
+#
+# Resurrection gives every window a fresh shell and no memory of what was
+# running in it, so the console's pane comes back as a bash prompt wearing the
+# console's name. The one thing a restored pane does keep is its working
+# directory, so the console window is opened standing in this one and the
+# profile script reads $PWD to know which pane it is in.
+#
+# World-writable with the sticky bit, like /tmp: any operator may be the one who
+# logs in first and creates the session, and none of them should need root to do
+# it.
+install -d -m1777 /var/lib/furcate-tui/console
+
+# On PATH.
+#
+# /usr/bin is read-only on a Furcate machine, so a symlink there is not
+# available. profile.d is, and it is already how the distribution puts its own
+# things in front of a login shell. Written here rather than shipped so that
+# removing the package takes the PATH entry with it.
+#
+# Prepended rather than appended: a tuios earlier on PATH from somewhere else
+# would keep being the one that runs, and the daemon and the client have to be
+# the same build.
+cat > /etc/profile.d/94-furcate-tui-path.sh <<'PATHEOF'
+case ":$PATH:" in
+    *:/opt/furcate/tui/bin:*) ;;
+    *) PATH="/opt/furcate/tui/bin:$PATH" ;;
+esac
+PATHEOF
+chmod 644 /etc/profile.d/94-furcate-tui-path.sh
+
+# The pane hook, sourced from /etc/bash.bashrc.
+#
+# It has to run in a pane, and a pane is not a login shell — tuios spawns a
+# plain interactive bash, so /etc/profile.d is never read there. Ubuntu's
+# bash.bashrc has no drop-in directory, so this appends one guarded line rather
+# than editing the file's contents, which is what makes it removable again.
+marker="# furcate-tui: restore the console pane"
+if ! grep -qF "$marker" /etc/bash.bashrc 2>/dev/null; then
+    {
+        echo ""
+        echo "$marker"
+        echo '[ -r /opt/furcate/tui/share/restore-console.sh ] && . /opt/furcate/tui/share/restore-console.sh'
+    } >> /etc/bash.bashrc
+fi
 
 # A running daemon keeps serving the build it started from, so an upgrade that
 # only replaced the binary would leave the old code running with no sign of it.
@@ -156,6 +219,11 @@ EOF
 #!/bin/sh
 set -e
 [ "$1" = purge ] || exit 0
+rm -f /etc/profile.d/94-furcate-tui-path.sh
+# Take the bash.bashrc hook back out, both lines and the blank one before them.
+if [ -f /etc/bash.bashrc ]; then
+    sed -i '/# furcate-tui: restore the console pane/,+1d' /etc/bash.bashrc
+fi
 for f in /etc/xdg/tuios/config.toml /etc/profile.d/95-furcate-tui.sh; do
     stamp=/var/lib/furcate-tui/$(basename "$f")
     if [ -f "$f" ] && [ -f "$stamp" ] && cmp -s "$f" "$stamp"; then
