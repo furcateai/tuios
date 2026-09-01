@@ -1,0 +1,112 @@
+# Furcate OS: the interface, as the distribution ships it.
+#
+# Installed to /etc/xdg/tuios/config.toml, which is the system default an
+# operator's own ~/.config/tuios/config.toml overrides key by key. Nothing here
+# is locked: this is what a machine looks like before anybody has an opinion,
+# not a policy about what they may change.
+#
+# The console's own design notes argue that a terminal is not a worse window
+# manager and that what a terminal is good at is a dense fixed layout that never
+# moves. That is still true of the console itself, which is why it keeps its own
+# rail and its own keys. What it needed underneath it was somewhere to put a
+# second thing — a shell, a log, another machine — without losing the first.
+
+[appearance]
+# The distribution's own palette, compiled into the binary. See
+# internal/theme/furcate.go; it is generated from the same OKLCH definition that
+# paints the login banner and the shell prompt, so all three are one brand.
+theme = "furcate"
+
+# Square corners. The console draws itself with box-drawing rules and filled
+# bars, and rounded window corners around square content reads as two different
+# UIs stacked.
+border_style = "normal"
+
+# The buttons are a desktop metaphor on a machine that has no mouse in a rack.
+# Panes are closed with a key, and the title bar's width is worth more than
+# three glyphs nobody clicks.
+hide_window_buttons = true
+window_title_position = "top"
+
+# Long enough to hold the output of a boot, a build, or a journal dump somebody
+# is reading backwards, which is the reason an operator scrolls at all.
+scrollback_lines = 50000
+
+[startup]
+# The console is the first thing on screen, opened by the layout below rather
+# than by this — a default window would put a bare shell in front of it.
+open_default_window = false
+
+# Tiled from the first pane. A floating window that has to be moved is a
+# desktop's idea; every pane here should be visible without arranging anything.
+tiled = true
+
+# Window-management mode, not terminal mode. The first thing an operator does is
+# look, and keys that navigate should work before keys that type.
+start_in_terminal_mode = false
+
+layout = "bsp"
+
+# A bare `tuios` attaches to the daemon rather than running standalone, so a
+# dropped SSH connection is reattached to rather than lost. This is the property
+# the whole session model exists for on machines somebody is worried about.
+daemon = true
+
+[dock]
+# What the bar carries, left to right.
+#
+# The right-hand end is the machine's own state, because that is the question an
+# operator has continuously and should never have to ask for: what is this
+# machine doing, and is anything wrong with it. cpu and ram are tuios's own; the
+# rest read Furcate through furcatectl.
+left   = ["mode", "workspaces"]
+center = ["windows"]
+right  = ["custom/power", "custom/findings", "custom/site", "cpu", "ram", "clock", "session-controls"]
+
+[dock.clock]
+# Seconds, because a screen watched during an incident should visibly be live.
+# A clock that has stopped is the first sign the session behind it has.
+format = "15:04:05"
+
+# --- what Furcate puts on the bar -------------------------------------------
+#
+# Each is a command whose first line becomes a cell. That is the entire
+# contract: environment in, one line of text out, and no API behind it that a
+# release could break. SGR colour survives, so each of these paints itself from
+# /usr/share/furcate/palette.sh and stays in the design language without this
+# file restating any of it.
+#
+# All three are read-only. Nothing on this bar changes the machine — the console
+# reads and furcatectl acts, and a status bar with a lever on it would be a hole
+# in the authority model wearing a convenient shape.
+
+[dock.custom.power]
+# What the machine is drawing, and whether it is being held below its rating.
+# First on the bar because it is the one number that is both continuously
+# interesting and invisible everywhere else: a node throttled by a controller
+# that died passes every health check and is simply slow.
+command = "/usr/bin/furcatectl dock power 2>/dev/null"
+refresh = "10s"
+max-width = 16
+
+[dock.custom.findings]
+# What the machine has concluded about itself and cannot act on alone. Silent
+# when there is nothing, so a cell appearing is itself the signal.
+command = "/usr/bin/furcatectl dock findings 2>/dev/null"
+refresh = "30s"
+max-width = 20
+
+[dock.custom.site]
+# Which machine this is and which site administers it. An operator with four
+# SSH sessions open needs the answer before they type, not after.
+command = "/usr/bin/furcatectl dock site 2>/dev/null"
+refresh = "event:after-attach"
+max-width = 28
+
+# --- hooks -------------------------------------------------------------------
+
+[hooks]
+# The bar's site cell is stale the moment a session is picked up somewhere else,
+# and an operator who reattaches from a different machine is exactly who most
+# needs it right. after-attach is a client event, so it fires per attach.
+after-attach = "/usr/bin/furcatectl dock refresh site 2>/dev/null || true"
