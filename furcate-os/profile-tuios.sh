@@ -105,52 +105,17 @@ if [ -z "${FURCATE_GREETED-}" ] && [ -t 1 ]; then
     if [ -n "${TUIOS_SESSION-}" ] || [ -n "${TUIOS_SOCKET-}" ]; then
         :
     elif [ "${FURCATE_TUI-1}" != 0 ] && [ -x "$FURCATE_TUI_BIN" ]; then
-        # The console's own sixteen, before anything is drawn in them.
+        # The console's palette is not set here.
         #
-        # TERM=linux is a sixteen-colour terminal whose slots are the kernel's
-        # defaults, so an RGB theme has nothing to land in: tuios falls back to
-        # those defaults and the screen comes up in the VT's green, red and
-        # blue rather than in Furcate's amber.
+        # It used to be, with the OSC P sequences /etc/issue uses, and it never
+        # worked: those are interpreted by whatever is reading the terminal, so
+        # once a full-screen program is attached they go into that program's
+        # emulator instead of the console driver. Reading the map back showed
+        # sixteen stock colours after every apply.
         #
-        # All sixteen, not the four palette.sh remaps. That function exists for
-        # the shell prompt and the login banner, which only ever use amber,
-        # dim, fault and the bright amber — but tuios draws its borders, its
-        # title bars and its dock out of the rest, and leaving those at the
-        # kernel's palette is exactly why the interface came up with green
-        # borders around salmon bars on a blue ground.
-        #
-        # The values are the ones internal/theme/furcate.go ships, so the
-        # machine's own screen and a terminal over SSH are the same brand
-        # rather than two readings of it. Regenerate both from
-        # deploy/os/branding/palette.json.
-        # Sixteen colours, because the console has sixteen.
-        #
-        # Ubuntu's `linux` terminfo entry declares colors#8. That is what
-        # decides how far a palette is degraded before it is drawn, so the
-        # theme was being folded down to eight and the bright half — every
-        # measured figure, every focused border — was landing on the wrong
-        # slot. The remap below was correct and could not be seen.
-        #
-        # `linux-16color` describes the same terminal with colors#16, which is
-        # what a Linux VT has actually had since it gained the OSC P sequences
-        # this file uses to repaint them.
-        case "${TERM:-}" in
-            linux)
-                if infocmp linux-16color >/dev/null 2>&1; then
-                    TERM=linux-16color
-                    export TERM
-                fi
-                ;;
-        esac
-
-        case "${TERM:-}" in
-            linux | linux-*)
-                printf '\033]P016120c\033]P1d42320\033]P28a6a1e\033]P3ffaf03'
-                printf '\033]P47a5f1a\033]P58a6a2a\033]P69a7a2a\033]P7868686'
-                printf '\033]P8747474\033]P9d4594e\033]PAc99a30\033]PBffc96e'
-                printf '\033]PCd8a840\033]PDc99a50\033]PEffc96e\033]PFf0e6d2'
-                ;;
-        esac
+        # furcate-vtpalette@.service does it with the PIO_CMAP ioctl, before
+        # the getty, which reaches the driver whether or not anything is
+        # attached.
 
         # The banner is cleared so the interface takes its place rather than
         # queueing underneath it. On a local console agetty has already painted
