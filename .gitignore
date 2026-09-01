@@ -33,3 +33,7 @@ zz_*_test.go
 /clienttests/node_modules
 /clienttests/test-results
 .ghostty-vt/
+
+# The libghostty-vt build cache. Cloned and built on demand by
+# scripts/ghostty-lib.sh; not something a checkout should carry.
+.ghostty-vt/
