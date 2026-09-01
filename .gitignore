@@ -38,3 +38,4 @@ zz_*_test.go
 # scripts/ghostty-lib.sh; not something a checkout should carry.
 .ghostty-vt/
 dist/
+dist/bin/

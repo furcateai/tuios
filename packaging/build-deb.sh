@@ -85,6 +85,14 @@ for arch in amd64 arm64; do
     ctl="$dist/bin/furcatectl-linux-$arch"
     [ -f "$ctl" ] && install -m755 "$ctl" "$work/root/opt/furcate/tui/bin/furcatectl"
 
+    # gpm, so the machine's own screen has a mouse.
+    #
+    # Carried rather than depended on: /usr is read-only here, so `apt install
+    # gpm` fails with EROFS and the package cannot be installed at all. It
+    # links only libc and libm, so nothing else has to come with it.
+    gpm="$dist/bin/gpm-linux-$arch"
+    [ -f "$gpm" ] && install -m755 "$gpm" "$work/root/opt/furcate/tui/bin/gpm"
+
     # The console's palette, as a program the getty runs before it starts.
     install -m755 "$root/furcate-os/vtpalette.sh" \
         "$work/root/opt/furcate/tui/bin/vtpalette"
@@ -98,6 +106,8 @@ for arch in amd64 arm64; do
         "$work/root/opt/furcate/tui/share/restore-console.sh"
     install -m644 "$root/furcate-os/furcate-vtpalette@.service" \
         "$work/root/opt/furcate/tui/share/furcate-vtpalette@.service"
+    install -m644 "$root/furcate-os/furcate-mouse.service" \
+        "$work/root/opt/furcate/tui/share/furcate-mouse.service"
 
     size=$(du -ks "$work/root" | cut -f1)
 
@@ -235,13 +245,15 @@ fi
 # The console's mouse.
 #
 # A Linux VT has no mouse of its own: tuios supports one and receives nothing
-# unless gpm is running to provide it. Over SSH from a real terminal this does
-# not apply, which is why gpm is a recommendation rather than a dependency —
-# but on the machine's own screen a mouse that does nothing is a puzzle rather
-# than a missing feature, so it is named.
-if [ -e /dev/input/mice ] && ! command -v gpm >/dev/null 2>&1; then
-    echo "furcate-tui: a mouse is attached but gpm is not installed, so the"
-    echo "  machine's own console cannot use it:  apt install gpm"
+# unless gpm is translating the device into console events. The binary ships
+# with the interface because /usr is read-only here and the package cannot be
+# installed. Over SSH from a real terminal none of this applies.
+if [ -x /opt/furcate/tui/bin/gpm ] && [ -d /etc/systemd/system ]; then
+    install -m644 /opt/furcate/tui/share/furcate-mouse.service \
+        /etc/systemd/system/furcate-mouse.service
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    systemctl enable furcate-mouse.service >/dev/null 2>&1 || true
+    systemctl restart furcate-mouse.service >/dev/null 2>&1 || true
 fi
 
 # A running daemon keeps serving the build it started from, so an upgrade that
@@ -262,6 +274,8 @@ EOF
 #!/bin/sh
 set -e
 [ "$1" = purge ] || exit 0
+systemctl disable --now furcate-mouse.service >/dev/null 2>&1 || true
+rm -f /etc/systemd/system/furcate-mouse.service
 systemctl disable furcate-vtpalette@tty1.service >/dev/null 2>&1 || true
 rm -f /etc/systemd/system/furcate-vtpalette@.service
 systemctl daemon-reload >/dev/null 2>&1 || true

@@ -1,0 +1,37 @@
+# The console's mouse.
+#
+# A Linux virtual console has no mouse of its own. tuios supports one — panes
+# are clickable, the rail is clickable, a drag selects — and receives nothing
+# at all unless something is translating the mouse device into console events.
+# gpm is what does that, and has since 1993.
+#
+# ## Why it runs from /opt
+#
+# /usr is read-only on a Furcate machine: it is a merged signed verity image,
+# so `apt install gpm` fails with EROFS and the package cannot be installed at
+# all. The binary is carried here instead, beside the interface that needs it.
+# It links only libc and libm, so nothing else has to come with it.
+#
+# ## Why exps2
+#
+# /dev/input/mice is the kernel's merged PS/2-emulating stream, which every
+# USB mouse also appears on. exps2 is the protocol it speaks, including the
+# wheel — and a wheel is most of what a mouse is for on a screen full of panes
+# somebody is scrolling.
+[Unit]
+Description=Furcate console mouse
+ConditionPathExists=/dev/input/mice
+After=systemd-user-sessions.service
+Before=getty@tty1.service
+
+[Service]
+Type=forking
+ExecStart=/opt/furcate/tui/bin/gpm -m /dev/input/mice -t exps2
+# gpm writes a pidfile and daemonises; without this systemd kills the child it
+# forked and the mouse stops the moment the unit is considered started.
+PIDFile=/run/gpm.pid
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
