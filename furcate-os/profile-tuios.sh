@@ -145,10 +145,10 @@ if [ -z "${FURCATE_GREETED-}" ] && [ -t 1 ]; then
 
         case "${TERM:-}" in
             linux | linux-*)
-                printf '\033]P016120c\033]P1d42320\033]P26b8f3a\033]P3ffaf03'
-                printf '\033]P44a6b8a\033]P57a5c8a\033]P64a8a8a\033]P7868686'
-                printf '\033]P8747474\033]P9d4594e\033]PA8fb35a\033]PBffc96e'
-                printf '\033]PC6a8bad\033]PD9a7cad\033]PE6aadad\033]PFf0e6d2'
+                printf '\033]P016120c\033]P1d42320\033]P28a6a1e\033]P3ffaf03'
+                printf '\033]P47a5f1a\033]P58a6a2a\033]P69a7a2a\033]P7868686'
+                printf '\033]P8747474\033]P9d4594e\033]PAc99a30\033]PBffc96e'
+                printf '\033]PCd8a840\033]PDc99a50\033]PEffc96e\033]PFf0e6d2'
                 ;;
         esac
 

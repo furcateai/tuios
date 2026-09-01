@@ -18,6 +18,26 @@ version="${1:-1.0.0}"
 
 [ -d "$dist" ] || { echo "no dist/ — run the go builds first" >&2; exit 1; }
 
+# Refuse to package a binary older than the source it claims to be.
+#
+# This shipped a stale tuios four times running: the theme was edited, the .deb
+# rebuilt, the version bumped, the package installed — and the binary inside it
+# was the one from before the edit, because building the .deb never rebuilt the
+# Go. Every symptom pointed at the palette and the palette was already right.
+#
+# Comparing mtimes is cruder than asking the compiler, and it is enough: the
+# failure was never a subtle staleness, it was a binary from an hour earlier.
+newest_src=$(find "$root/internal" "$root/cmd" -name '*.go' -newer "$dist/tuios-linux-amd64" -print -quit 2>/dev/null || true)
+if [ -n "$newest_src" ]; then
+    echo "REFUSING: $newest_src is newer than dist/tuios-linux-amd64" >&2
+    echo "The package would carry a binary built before that change. Rebuild:" >&2
+    echo "  for a in amd64 arm64; do" >&2
+    echo "    CGO_ENABLED=0 GOOS=linux GOARCH=\$a go build -trimpath \\" >&2
+    echo "      -o dist/tuios-linux-\$a ./cmd/tuios" >&2
+    echo "  done" >&2
+    exit 1
+fi
+
 # A .deb is an ar archive of three members in a fixed order. mkar.py writes it
 # directly: macOS ships BSD ar, which emits a symbol table and a header variant
 # dpkg refuses, and requiring GNU binutils just to concatenate three files would

@@ -49,10 +49,17 @@ import (
 // and anything always present. Fault is the one thing on screen that is not
 // amber, because a fault has to be findable before the screen has been read.
 //
-// Blue, cyan, purple and green carry no meaning in that language. They exist
-// because a terminal has sixteen colours and programs in a pane will use them —
-// a syntax highlighter, ls, a diff — and they are held desaturated and close to
-// the ground so a guest program cannot out-shout the status line beside it.
+// Blue, cyan, purple and green are not spare slots. theme.go derives the whole
+// chrome from them — the focused border is BrightCyan in window mode and
+// BrightGreen in terminal mode, the dock's mode indicator is BrightBlue — so
+// whatever goes in them is what the interface is framed in. A palette that left
+// them as literal green and cyan drew a green and cyan frame around amber
+// content, which read as somebody else's terminal with Furcate's text in it.
+//
+// They are therefore amber as well, separated from the voice by weight rather
+// than by hue. Guest programs asking for green or cyan still get something
+// legible; they simply do not get to put a second accent on a screen whose job
+// is showing which machine needs attention.
 var furcateTint = tint.Tint{
 	ID:          "furcate",
 	DisplayName: "Furcate",
@@ -73,13 +80,28 @@ var furcateTint = tint.Tint{
 	Black: tint.FromHex("#16120c"),
 	// fault.base. Slot 1, matching the console remap.
 	Red: tint.FromHex(FurFaultBase),
-	// Not part of Furcate's voice; see the note above.
-	Green: tint.FromHex("#6b8f3a"),
+	// Green, blue, cyan and purple are not decoration here and they are not
+	// free either: theme.go derives the chrome from them. A focused border in
+	// window mode is BrightCyan, in terminal mode BrightGreen, an unfocused one
+	// is Red, and the dock's mode indicator is BrightBlue or BrightGreen. A
+	// palette that kept them as literal green and cyan therefore drew a green
+	// and cyan frame around amber content — which is exactly how the first
+	// screens looked, and why it read as somebody else's terminal with
+	// Furcate's text in it.
+	//
+	// So they are amber too, separated by weight rather than by hue. The
+	// interface is one colour, the way the console it replaces was, and the
+	// three that carry meaning — measured, warning, fault — are still the only
+	// things that differ from it.
+	//
+	// A guest program asking for green still gets something green-ish enough to
+	// be legible; it simply does not get to put a second accent on the screen.
+	Green: tint.FromHex("#8a6a1e"),
 	// amber.base. Slot 3, matching the console remap.
 	Yellow: tint.FromHex(FurAmberBase),
-	Blue:   tint.FromHex("#4a6b8a"),
-	Purple: tint.FromHex("#7a5c8a"),
-	Cyan:   tint.FromHex("#4a8a8a"),
+	Blue:   tint.FromHex("#7a5f1a"),
+	Purple: tint.FromHex("#8a6a2a"),
+	Cyan:   tint.FromHex("#9a7a2a"),
 	// neutral.bright, so ordinary text sits above the dim slot without
 	// reaching the brightness that means "measured".
 	White: tint.FromHex(FurNeutralBright),
@@ -89,13 +111,15 @@ var furcateTint = tint.Tint{
 	// L0.31 it is too dark to read on a black ground.
 	BrightBlack: tint.FromHex(FurNeutralBase),
 	BrightRed:   tint.FromHex(FurFaultBright),
-	BrightGreen: tint.FromHex("#8fb35a"),
+	BrightGreen: tint.FromHex("#c99a30"),
 	// amber.bright. Slot 11, matching the console remap. Same hue as Yellow —
 	// see the note above before changing it.
 	BrightYellow: tint.FromHex(FurAmberBright),
-	BrightBlue:   tint.FromHex("#6a8bad"),
-	BrightPurple: tint.FromHex("#9a7cad"),
-	BrightCyan:   tint.FromHex("#6aadad"),
+	BrightBlue:   tint.FromHex("#d8a840"),
+	BrightPurple: tint.FromHex("#c99a50"),
+	// The focused border in window mode. Brightest of the chrome, because it
+	// is the one that says where you are.
+	BrightCyan:   tint.FromHex("#ffc96e"),
 	BrightWhite:  tint.FromHex("#f0e6d2"),
 }
 

@@ -98,37 +98,47 @@ func TestFaultIsNotAnAmber(t *testing.T) {
 	}
 }
 
-// The rest of the wheel may be any colour that does not look out of place.
+// The rest of the wheel is the chrome, and the chrome is amber.
 //
-// A terminal has sixteen slots and programs in a pane will use all of them — a
-// syntax highlighter, ls, a diff — so blue, cyan, purple and green have to
-// exist and have to look like they belong to this palette. The rule is not
-// which hue they are; it is that none of them may out-shout the amber. Furcate
-// says one thing with colour at a time, and a cyan more saturated than the
-// brand turns somebody else's `ls` output into the brightest thing on a screen
-// whose whole job is showing which machine needs attention.
+// theme.go derives the interface's frame from these slots: BrightCyan is the
+// focused border in window mode, BrightGreen the focused border in terminal
+// mode, BrightBlue the dock's mode indicator. They are not spare colours a
+// guest program borrows — they are what the screen is drawn in — so a literal
+// green or cyan here frames amber content in somebody else's palette.
 //
-// So: pick any hue that looks right. Keep it quieter than the amber.
-func TestGuestColoursDoNotOutshoutTheBrand(t *testing.T) {
+// Held to the amber family for that reason, and still quieter than the voice
+// so that a border never out-shouts the figure inside it. Red is exempt: it is
+// the fault colour and has to be the one thing that is not amber.
+func TestChromeStaysInTheAmberFamily(t *testing.T) {
 	_, amberChroma, _ := oklchOf(t, furcateTint.Yellow.Hex())
 
+	const (
+		amberHueMin = 55.0
+		amberHueMax = 100.0
+	)
 	for _, c := range []struct {
 		name string
 		hex  string
 	}{
+		{"BrightCyan (focused border, window mode)", furcateTint.BrightCyan.Hex()},
+		{"BrightGreen (focused border, terminal mode)", furcateTint.BrightGreen.Hex()},
+		{"BrightBlue (dock mode indicator)", furcateTint.BrightBlue.Hex()},
 		{"Green", furcateTint.Green.Hex()},
 		{"Blue", furcateTint.Blue.Hex()},
-		{"Purple", furcateTint.Purple.Hex()},
 		{"Cyan", furcateTint.Cyan.Hex()},
-		{"BrightGreen", furcateTint.BrightGreen.Hex()},
-		{"BrightBlue", furcateTint.BrightBlue.Hex()},
-		{"BrightPurple", furcateTint.BrightPurple.Hex()},
-		{"BrightCyan", furcateTint.BrightCyan.Hex()},
+		{"Purple", furcateTint.Purple.Hex()},
 	} {
-		_, chroma, _ := oklchOf(t, c.hex)
+		_, chroma, hue := oklchOf(t, c.hex)
+		if hue < amberHueMin || hue > amberHueMax {
+			t.Errorf("%s is hue %.1f, outside the amber family (%.0f-%.0f): "+
+				"the interface would be framed in a second colour",
+				c.name, hue, amberHueMin, amberHueMax)
+		}
+		// Quieter than the voice. A border is a frame, and a frame that is
+		// more saturated than what it contains is the loudest thing on screen.
 		if chroma >= amberChroma {
-			t.Errorf("%s has chroma %.3f, at or above the amber's %.3f; "+
-				"a guest program's colour must not be the loudest thing on the screen",
+			t.Errorf("%s has chroma %.3f, at or above the voice's %.3f; "+
+				"the frame must not out-shout the figure inside it",
 				c.name, chroma, amberChroma)
 		}
 	}

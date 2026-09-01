@@ -10,11 +10,12 @@
 # internal/theme/furcate.go; it is generated from the same OKLCH definition that
 # paints the login banner and the shell prompt, so all three are one brand.
 #
-# On the machine's own screen this is not what carries the brand. TERM=linux is
-# a sixteen-colour terminal with nowhere to put an RGB theme, so the profile
-# script remaps the console's own slots to the four values the login banner uses
-# and from then on the indices *are* the brand. The theme still applies over
-# SSH, where the terminal can show it.
+# On the machine's own screen the theme is not applied as RGB. A Linux VT has
+# sixteen colours, so furcate-vtpalette@.service repaints those sixteen slots
+# with the theme's own values and TERM is set to linux-16color — Ubuntu's plain
+# `linux` entry declares colors#8, which folded the palette to eight and put
+# every bright colour on the wrong slot. From then on the indices *are* the
+# brand. Over SSH the theme applies directly.
 theme = "furcate"
 
 # Square corners. The views draw with box rules and filled bars, and rounded
@@ -27,6 +28,10 @@ border_style = "normal"
 # four panes has no idea there are other sessions, other machines, or anything
 # behind them. This is the part that makes the interface navigable rather than
 # a fixed dashboard somebody has to already know the keys for.
+# `s` in window mode focuses the rail, `Tab` moves between its sections and
+# `Enter` opens what is under the cursor. Getting back to the panes is `Esc`.
+# Without knowing `s` the rail is visible and unreachable, which is how it first
+# looked here.
 [appearance.sidebar]
 enabled = true
 position = "left"
