@@ -95,6 +95,23 @@ if [ -z "${FURCATE_GREETED-}" ] && [ -t 1 ]; then
     if [ -n "${TUIOS_SESSION-}" ] || [ -n "${TUIOS_SOCKET-}" ]; then
         :
     elif [ "${FURCATE_TUI-1}" != 0 ] && [ -x "$FURCATE_TUI_BIN" ]; then
+        # The console's own sixteen, before anything is drawn in them.
+        #
+        # TERM=linux is a sixteen-colour terminal whose slots are the kernel's
+        # defaults, so an RGB theme has nothing to land in: tuios falls back to
+        # the stock palette and the screen comes up in the VT's green and red
+        # rather than in Furcate's amber. The distribution already solves this
+        # for the login banner — /etc/issue opens with the same four OSC
+        # sequences — and palette.sh carries the function that emits them.
+        #
+        # Doing it here means the physical console gets the brand for
+        # everything drawn after it, tuios included. It is a no-op on any other
+        # terminal, and on those the RGB theme works as it is.
+        if [ -r /usr/share/furcate/palette.sh ]; then
+            . /usr/share/furcate/palette.sh
+            command -v fur_console_palette >/dev/null 2>&1 && fur_console_palette
+        fi
+
         # The banner is cleared so the interface takes its place rather than
         # queueing underneath it. On a local console agetty has already painted
         # the pre-login screen; over SSH this is the first thing drawn.

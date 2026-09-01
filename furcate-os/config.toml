@@ -15,6 +15,12 @@
 # The distribution's own palette, compiled into the binary. See
 # internal/theme/furcate.go; it is generated from the same OKLCH definition that
 # paints the login banner and the shell prompt, so all three are one brand.
+#
+# On a machine's own screen this is not what carries the brand. TERM=linux is a
+# sixteen-colour terminal with no truecolour to put an RGB theme in, so the
+# profile script remaps the console's own slots to the same four values the
+# login banner uses — and from then on the indices *are* the brand. The theme
+# still applies over SSH, where the terminal can show it.
 theme = "furcate"
 
 # Square corners. The console draws itself with box-drawing rules and filled
