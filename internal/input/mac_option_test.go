@@ -143,6 +143,17 @@ func TestComposedGlyphsAreNotChordsOffDarwin(t *testing.T) {
 	darwinHost = false
 	t.Cleanup(func() { darwinHost = prev })
 
+	// The platform is decided in two places and both have to move.
+	//
+	// darwinHost above gates the chord *reading* — whether a bare ˜ is taken to
+	// mean alt+n. config's own copy gates something earlier: whether the glyph
+	// is registered as a binding key in the first place. With only this
+	// package's switch flipped the registry still held ˜ bound to a session
+	// action, so the lookup below found it by its plain spelling and the test
+	// failed while reporting the feature was leaking onto other platforms —
+	// which it is not.
+	t.Cleanup(config.SetMacOSHostForTest(false))
+
 	registry := config.NewKeybindRegistry(config.DefaultConfig())
 	for _, msg := range []tea.KeyPressMsg{
 		{Code: '˜', Text: "˜"},

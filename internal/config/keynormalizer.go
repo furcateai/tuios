@@ -37,9 +37,21 @@ type KeyNormalizer struct {
 // NewKeyNormalizer creates a new key normalizer with platform detection
 func NewKeyNormalizer() *KeyNormalizer {
 	return &KeyNormalizer{
-		isMacOS: detectMacOS(),
+		isMacOS: macOSHost,
 	}
 }
+
+// macOSHost is the answer detectMacOS gives, held as a variable so a test can
+// put the other platform under it.
+//
+// internal/input has the same seam for the same reason, and the two have to be
+// moved together: the input path gates the Option-chord *reading* on its own
+// copy, while this one decides whether the composed glyph is registered as a
+// binding key at all. A test that flipped only one of them still resolved the
+// glyph — through the registry rather than through the chord path — which is
+// exactly the failure that went unnoticed because it looked like the feature
+// working.
+var macOSHost = detectMacOS()
 
 // IsMacOS returns whether the current platform is macOS
 func (kn *KeyNormalizer) IsMacOS() bool {
@@ -306,6 +318,20 @@ func (kn *KeyNormalizer) NormalizeKey(key string) []string {
 			// Case is preserved: å (opt+a) and Å (opt+shift+a) are different keys.
 			result = append(result, glyph)
 			result = append(result, optionToAltReplacer.Replace(keyLower))
+		}
+
+		// The alt+ spelling produced above needs the shift aliases too.
+		//
+		// shiftAliases ran once, on the key as written. For a binding written
+		// "opt+shift+1" that gave the opt-spelled pair — opt+! and opt+shift+!
+		// — and the branches above then added "alt+shift+1", which no longer
+		// passes through anything that aliases it. So the alt-spelled shifted
+		// forms were never registered, and a Mac on a terminal without the
+		// Kitty protocol sends exactly those: "alt+!" reached the registry and
+		// found nothing, which is move_and_follow bound and silently dead on
+		// the default config.
+		if alt := optionToAltReplacer.Replace(keyLower); alt != keyLower {
+			result = append(result, modifiedShiftAliases(alt)...)
 		}
 
 		// If the key starts with "alt+", also accept "opt+" and "option+" variants
