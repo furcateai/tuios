@@ -1,0 +1,18 @@
+# Furcate's palette on a virtual console.
+#
+# Ordered before the getty so the slots are already the brand when the login
+# banner is painted, rather than changing colour underneath somebody. Templated
+# on the tty so a machine with several consoles gets them all without the unit
+# knowing how many there are.
+[Unit]
+Description=Furcate palette on %I
+Before=getty@%i.service
+ConditionPathExists=/dev/%i
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/furcate/tui/bin/vtpalette /dev/%i
+
+[Install]
+WantedBy=getty.target

@@ -109,18 +109,28 @@ if [ -z "${FURCATE_GREETED-}" ] && [ -t 1 ]; then
         #
         # TERM=linux is a sixteen-colour terminal whose slots are the kernel's
         # defaults, so an RGB theme has nothing to land in: tuios falls back to
-        # the stock palette and the screen comes up in the VT's green and red
-        # rather than in Furcate's amber. The distribution already solves this
-        # for the login banner — /etc/issue opens with the same four OSC
-        # sequences — and palette.sh carries the function that emits them.
+        # those defaults and the screen comes up in the VT's green, red and
+        # blue rather than in Furcate's amber.
         #
-        # Doing it here means the physical console gets the brand for
-        # everything drawn after it, tuios included. It is a no-op on any other
-        # terminal, and on those the RGB theme works as it is.
-        if [ -r /usr/share/furcate/palette.sh ]; then
-            . /usr/share/furcate/palette.sh
-            command -v fur_console_palette >/dev/null 2>&1 && fur_console_palette
-        fi
+        # All sixteen, not the four palette.sh remaps. That function exists for
+        # the shell prompt and the login banner, which only ever use amber,
+        # dim, fault and the bright amber — but tuios draws its borders, its
+        # title bars and its dock out of the rest, and leaving those at the
+        # kernel's palette is exactly why the interface came up with green
+        # borders around salmon bars on a blue ground.
+        #
+        # The values are the ones internal/theme/furcate.go ships, so the
+        # machine's own screen and a terminal over SSH are the same brand
+        # rather than two readings of it. Regenerate both from
+        # deploy/os/branding/palette.json.
+        case "${TERM:-}" in
+            linux | linux-*)
+                printf '\033]P016120c\033]P1d42320\033]P26b8f3a\033]P3ffaf03'
+                printf '\033]P44a6b8a\033]P57a5c8a\033]P64a8a8a\033]P7868686'
+                printf '\033]P8747474\033]P9d4594e\033]PA8fb35a\033]PBffc96e'
+                printf '\033]PC6a8bad\033]PD9a7cad\033]PE6aadad\033]PFf0e6d2'
+                ;;
+        esac
 
         # The banner is cleared so the interface takes its place rather than
         # queueing underneath it. On a local console agetty has already painted

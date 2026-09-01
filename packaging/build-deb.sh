@@ -85,6 +85,10 @@ for arch in amd64 arm64; do
     ctl="$dist/bin/furcatectl-linux-$arch"
     [ -f "$ctl" ] && install -m755 "$ctl" "$work/root/opt/furcate/tui/bin/furcatectl"
 
+    # The console's palette, as a program the getty runs before it starts.
+    install -m755 "$root/furcate-os/vtpalette.sh" \
+        "$work/root/opt/furcate/tui/bin/vtpalette"
+
     install -d "$work/root/opt/furcate/tui/share"
     install -m644 "$root/furcate-os/config.toml" \
         "$work/root/opt/furcate/tui/share/config.toml"
@@ -92,6 +96,8 @@ for arch in amd64 arm64; do
         "$work/root/opt/furcate/tui/share/profile.sh"
     install -m644 "$root/furcate-os/restore-console.sh" \
         "$work/root/opt/furcate/tui/share/restore-console.sh"
+    install -m644 "$root/furcate-os/furcate-vtpalette@.service" \
+        "$work/root/opt/furcate/tui/share/furcate-vtpalette@.service"
 
     size=$(du -ks "$work/root" | cut -f1)
 
@@ -212,6 +218,20 @@ if ! grep -qF "$marker" /etc/bash.bashrc 2>/dev/null; then
     } >> /etc/bash.bashrc
 fi
 
+# The palette on the machine's own screens.
+#
+# A unit rather than a line in the profile: a profile script paints the console
+# it happens to be attached to, which is right for a login and wrong for a
+# machine that reboots into the interface or has a getty restarted under it.
+# Per console, before the getty, makes the palette a property of the screen.
+if [ -d /etc/systemd/system ]; then
+    install -m644 /opt/furcate/tui/share/furcate-vtpalette@.service \
+        /etc/systemd/system/furcate-vtpalette@.service
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    systemctl enable furcate-vtpalette@tty1.service >/dev/null 2>&1 || true
+    systemctl start furcate-vtpalette@tty1.service >/dev/null 2>&1 || true
+fi
+
 # The console's mouse.
 #
 # A Linux VT has no mouse of its own: tuios supports one and receives nothing
@@ -242,6 +262,9 @@ EOF
 #!/bin/sh
 set -e
 [ "$1" = purge ] || exit 0
+systemctl disable furcate-vtpalette@tty1.service >/dev/null 2>&1 || true
+rm -f /etc/systemd/system/furcate-vtpalette@.service
+systemctl daemon-reload >/dev/null 2>&1 || true
 rm -f /etc/profile.d/94-furcate-tui-path.sh
 # Take the bash.bashrc hook back out, both lines and the blank one before them.
 if [ -f /etc/bash.bashrc ]; then
