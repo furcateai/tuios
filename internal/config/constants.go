@@ -613,6 +613,12 @@ const DimUnfocusedMax = 90
 // DefaultClockFormat is what the clock has always drawn.
 const DefaultClockFormat = "15:04:05"
 
+// ThemeFurcate is the distribution's own palette, registered as a built-in in
+// internal/theme/furcate.go. Named rather than spelled as a bare string at each
+// use, because the id is also what an operator's override file has to be called
+// and a typo in one place would silently stop matching the other.
+const ThemeFurcate = "furcate"
+
 // GetClockFormat returns the layout in effect.
 func (s *Settings) GetClockFormat() string {
 	if s.ClockFormat == "" {

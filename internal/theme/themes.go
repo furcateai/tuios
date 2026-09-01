@@ -43,6 +43,9 @@ var ensureRegistryOnce sync.Once
 func EnsureRegistry() {
 	ensureRegistryOnce.Do(func() {
 		tint.NewDefaultRegistry()
+		// Before the operator's own files, so a theme they wrote under the id
+		// "furcate" replaces the built-in rather than being replaced by it.
+		registerFurcate()
 		if themesDir, err := GetThemesDir(); err == nil {
 			if _, err := LoadCustomThemes(themesDir); err != nil {
 				log.Printf("Warning: error loading custom themes: %v", err)

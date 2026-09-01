@@ -437,6 +437,13 @@ type KeybindingsConfig struct {
 func DefaultConfig() *UserConfig {
 	cfg := &UserConfig{
 		Appearance: AppearanceConfig{
+			// This is a distribution's UI, not a terminal toy, so it comes up
+			// in the distribution's palette rather than inheriting whatever
+			// sixteen colours the operator's terminal happens to carry. A
+			// machine reached over SSH from somebody else's laptop should look
+			// like a Furcate machine. Setting `theme = ""` restores the old
+			// behaviour of using the terminal's own colours.
+			Theme:                ThemeFurcate,
 			BorderStyle:          "rounded",
 			ZenMode:              ZenModeDisabled,
 			Links:                LinksAll,

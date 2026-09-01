@@ -184,7 +184,7 @@ var optionSpecs = []Option{
 	{
 		Path: "appearance.theme", Type: OptionString, Section: "appearance",
 		Description: "Colour theme name. Empty keeps your terminal's own colours.",
-		Default:     "", Theme: true,
+		Default:     ThemeFurcate, Theme: true,
 	},
 	{
 		Path: "appearance.shared_borders", Type: OptionBool, Section: "appearance",
