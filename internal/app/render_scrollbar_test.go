@@ -628,6 +628,21 @@ func TestScrollbarTintFollowsTheFocusedPane(t *testing.T) {
 // them rather than trusted as the shade on screen.
 func TestScrollbarTintFloorRejectsAnUnreadableAccent(t *testing.T) {
 	scrollbarDefaults(t)
+
+	// The two ratios below are what slot 11 resolves to with nothing themed,
+	// and the test is about that case: an accent the *user's terminal* supplies
+	// and tuios cannot see, checked against the floor rather than trusted. A
+	// theme replaces the sixteen with values it does know, so slot 11 stops
+	// being the unreadable colour the assertions were measured from — the
+	// distribution's palette puts it at 2.93:1 on the canvas, which is legible
+	// and therefore not the case under test.
+	//
+	// Stated here rather than inherited from whatever the process last set, so
+	// the test says which world it is describing.
+	prevTheme := theme.CurrentThemeID()
+	_ = theme.Initialize("")
+	t.Cleanup(func() { _ = theme.Initialize(prevTheme) })
+
 	const darkBlueAccent = 11 // accentNames: ..., blue(4), magenta, cyan, white, dark red, dark green, dark yellow, dark blue
 	accent := accentColor(darkBlueAccent)
 	pal := theme.UI()
